@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <stddef.h>
 #include <sys/types.h>
-#include <sentinel/syscall.h>
+#include "sentinel/syscall.h"
 #include <errno.h>
 #include <fcntl.h>
 #include <unistd.h>
@@ -28,9 +28,9 @@ int sc_open_write(const char *path, int append)
 
         while (fd < 0 && errno == EINTR)
         {
-            if(append != 0)
+        if(append != 0)
             { fd = open(path, O_WRONLY | O_APPEND | O_CREAT, 0644);}
-            else
+        else
             { fd = open(path, O_WRONLY | O_TRUNC | O_CREAT, 0644);}
         }
     return fd; 

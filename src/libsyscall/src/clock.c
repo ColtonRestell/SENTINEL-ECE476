@@ -2,7 +2,7 @@
 #include <stddef.h>
 #include <sys/types.h>
 #include <time.h>
-#include <sentinel/syscall.h>
+#include "sentinel/syscall.h"
 #include <errno.h>
 #include <stdio.h>
 
