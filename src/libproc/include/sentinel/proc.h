@@ -6,8 +6,10 @@
  * the next report that the centre handles.
  *
  * WHO WRITES WHAT. You write the functions marked YOURS, in the file that
- * each section names: src/sensor.c, src/prio_channel.c and src/sched.c. The
- * functions marked GIVEN are in src/libproc/given/. You read them, and you
+ * each section names: src/sensor.c, src/prio_channel.c and src/sched.c.
+ * Each of the three files comes with a stub for each of these functions,
+ * and its steps in a comment. The functions marked GIVEN are in
+ * src/libproc/given/. You read them, and you
  * do not change them. Do not change a declaration in this file: the tests
  * that mark your lab call each function as it is declared here.
  *
@@ -244,7 +246,10 @@ typedef struct {
  * Input: ch, a prio_channel_t that the caller owns; path, the name of the
  * FIFO. demo_lab2 uses /tmp/sentinel_priority.fifo.
  * What it does, in this order:
- *   1. Set ch->fd and ch->fd_hold to -1, and copy path into ch->path.
+ *   1. Set ch->fd and ch->fd_hold to -1, and ch->path to "". If path has
+ *      256 or more characters, fail with ENAMETOOLONG (Errors, below), so
+ *      that the copy cannot pass the end of ch->path. Then copy path into
+ *      ch->path.
  *   2. Remove an entry that exists at path with unlink(). Its error is not
  *      checked: there is usually no entry.
  *   3. Create the FIFO with mkfifo(path, 0600). Then set the mode with
@@ -350,9 +355,15 @@ typedef struct {
     const char *region;            /* the region of a HIGH report, or NULL */
 } pending_t;
 
-typedef struct sched sched_t;   /* you define struct sched in src/sched.c */
+typedef struct sched sched_t;   /* struct sched is in src/sched.c */
 
-/* ------------------------------------------------ YOURS, in src/sched.c */
+/* ------------------------------------------------ in src/sched.c
+ *
+ * src/sched.c comes from the course with struct sched and sched_next
+ * written: they hold the three policies. Do not change them. YOU write
+ * sched_create, sched_destroy, sched_push and sched_pending in the same
+ * file, with the fields of struct sched.
+ */
 
 /* Make an empty scheduler.
  *
@@ -381,8 +392,8 @@ void sched_destroy(sched_t *s);
  */
 int sched_push(sched_t *s, const pending_t *p);
 
-/* Take the next report, as the policy chooses, out of s, and copy it to
- * *out.
+/* GIVEN in src/sched.c. Take the next report, as the policy chooses, out
+ * of s, and copy it to *out.
  *
  *   POLICY_FCFS      the report that was pushed first.
  *   POLICY_PRIORITY  the report with the highest pending_urgency (GIVEN):
