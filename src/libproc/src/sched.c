@@ -40,6 +40,7 @@
  */
 
 #include "sentinel/proc.h"
+#include "sentinel/syscall.h"
 
 #include <stdio.h>
 #include <stdint.h>
@@ -163,10 +164,41 @@ int sched_next(sched_t *s, pending_t *out)
  */
 sched_t *sched_create(sched_policy_t policy, size_t capacity)
 {
+    //Step 1
+       if (policy != POLICY_FCFS &&policy != POLICY_PRIORITY && policy != POLICY_RR) {errno = EINVAL; return NULL;}
+
+    //Step 2
+        if(capacity == 0) {capacity = 4096;} 
+    
+    //Step 3
+        sched_t *s;
+        s = malloc(sizeof *s); 
+            if(s == NULL) { errno = ENOMEM; return NULL;}
+    
+    //Step 4
+        s->slots = calloc(capacity, sizeof *s->slots);  
+        if (s->slots == NULL)
+            {
+                int saved_errno = errno;
+
+                free(s);
+
+                errno = saved_errno;
+
+                return NULL;
+            }
+    
+    //Step 5 
+        s->policy = policy; s->capacity = capacity; s->count = 0; s->rr_next = 0; 
+
+    //Step 6
+        return s; 
+    /*
     (void)policy;
     (void)capacity;
     errno = ENOSYS;
     return NULL;
+    */
 }
 
 /* sched_destroy: free the scheduler.
@@ -177,7 +209,13 @@ sched_t *sched_create(sched_policy_t policy, size_t capacity)
  */
 void sched_destroy(sched_t *s)
 {
-    (void)s;
+    //Step 1
+        if(s == NULL) {return;}
+
+    //Step 2
+        free(s->slots);
+        free(s);
+    //(void)s;
 }
 
 /* sched_push: add a copy of *p at the end.
@@ -191,10 +229,24 @@ void sched_destroy(sched_t *s)
  */
 int sched_push(sched_t *s, const pending_t *p)
 {
+    //Step 1
+        if((s == NULL|| p== NULL) ){errno = EINVAL; return -1;}
+    
+    //Step 2
+        if(s->count == s->capacity) {errno = ENOSPC; return -1;}
+
+    //Step 3
+        s->slots[s->count] = *p; 
+
+    //Step 4
+        s->count++;
+        return 0;
+    /*
     (void)s;
     (void)p;
     errno = ENOSYS;
     return -1;
+    */
 }
 
 /* sched_pending: how many reports wait.
@@ -204,6 +256,8 @@ int sched_push(sched_t *s, const pending_t *p)
  */
 size_t sched_pending(const sched_t *s)
 {
-    (void)s;
-    return 0;
+    if(s == NULL) {return 0;}
+        return s->count; 
+   // (void)s;
+   // return 0;
 }

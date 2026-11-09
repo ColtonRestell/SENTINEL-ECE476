@@ -62,6 +62,7 @@
  *       https://man7.org/linux/man-pages/man3/errno.3.html
  */
 
+#include "sentinel/syscall.h"
 #include "sentinel/proc.h"
 #include "cpu.h"
 
@@ -125,12 +126,98 @@
  */
 int sensor_spawn(sensor_net_t *net, sensor_id_t id, int rate, int burst)
 {
-    (void)net;
+    //Step 1
+        if(net == NULL || id < 0 || id >= SENSOR_COUNT) {errno = EINVAL; return -1;}
+
+    //Step 2
+        sensor_t *s = &net->sensors[id]; 
+            if(s -> pid != 0) {errno = EEXIST; return -1;}
+            if(s -> fd >= 0) {errno = EBUSY; return -1;}
+        
+    //Step 3
+        char rate_buf[32];
+        snprintf(rate_buf, sizeof rate_buf, "%d", rate);
+
+    //Step 4 
+        int fds[2]; 
+            if(pipe2(fds, O_CLOEXEC) == -1) {return -1;}
+
+    //Step 5 
+        if(sensor_channel_open(s, fds[0]) == -1) 
+            {
+                int s_errno = errno; 
+                sc_close(fds[0]);
+                sc_close(fds[1]);
+                errno = s_errno; 
+                return -1;
+            }
+
+    //Step 6
+        fflush(stdout); 
+        fflush(stderr); 
+
+    //Step 7 
+        pid_t pid = fork();
+            if (pid == -1)
+            {
+                int s_errno = errno; 
+                sensor_channel_close(s); 
+                sc_close(fds[1]);
+                errno = s_errno;
+                return -1; 
+            }
+    
+    //Step 8 
+        if(pid == 0)
+        {
+            //a
+                if(fds[1] != STDOUT_FILENO) {dup2(fds[1], STDOUT_FILENO);}
+                else 
+                {
+                    if(fcntl(STDOUT_FILENO, F_SETFD, 0) == -1){_exit(126);}
+                }
+            
+            //b 
+                signal(SIGPIPE, SIG_IGN);
+            
+            //c 
+                cpu_unpin(); 
+            
+            //d 
+                char *argv[] = { (char *)net->feed_path, "--sensor",
+                                (char *)sensor_name(id),
+                                burst ? "--burst" : "--rate",
+                                rate_buf, NULL };
+            
+            //e 
+                if(execvp(net->feed_path, argv)== -1) {_exit(127);}
+        }
+        
+    //Step 9
+        sc_close(fds[1]); 
+            s->pid = pid;
+            s->rate = rate;
+            s->burst = burst;
+            s->started_ns = sc_now_ns();
+                net->n_sensors++;
+    
+    //Step 10 
+        if((net->log) != NULL)
+            {
+                log_writef(net->log, LOG_SYSTEM, "sensor %s started pid=%d %s=%d fd=%d",
+                   sensor_name(id), (int)pid, burst ? "burst" : "rate",
+                   rate, s->fd);
+            }
+        
+    //Step 11 
+        return 0; 
+   /* (void)net;
     (void)id;
     (void)rate;
     (void)burst;
     errno = ENOSYS;
     return -1;
+    */
 }
 
 /* sensor_stop: stop one sensor and collect it.
@@ -157,10 +244,44 @@ int sensor_spawn(sensor_net_t *net, sensor_id_t id, int rate, int burst)
  */
 int sensor_stop(sensor_net_t *net, sensor_id_t id)
 {
-    (void)net;
+    //Step 1
+        if(net == NULL || id < 0 || id >= SENSOR_COUNT) {errno = EINVAL; return -1;}
+
+    //Step 2
+        sensor_t *s = &net->sensors[id];
+            if(s->pid == 0) {return 0;}
+    
+    //Step 3
+        kill(s->pid, SIGTERM);
+    
+    //Step 4
+        while (waitpid(s->pid, NULL, 0) < 0)
+        {
+          if (errno != EINTR) {break;}
+        }
+    pid_t pid = s->pid;
+    
+    //Step 5
+        s->pid = 0;
+        net->n_sensors--; 
+
+    //Step 6
+        if(net->log != NULL)
+        {
+            log_writef(net->log, LOG_SYSTEM, "sensor %s (pid %d) stopped",
+                    sensor_name(id), (int)pid);
+        }
+        
+    //Step 7 
+        return 0;
+        
+
+
+   /* (void)net;
     (void)id;
     errno = ENOSYS;
     return -1;
+    */
 }
 
 /* sensor_reap: collect each sensor that has stopped, and do not wait.
@@ -194,7 +315,54 @@ int sensor_stop(sensor_net_t *net, sensor_id_t id)
  */
 int sensor_reap(sensor_net_t *net)
 {
-    (void)net;
+    //Step 1
+        if(net == NULL) {errno = EINVAL; return -1;}
+    
+    //Step 2
+        int collected = 0;
+            for(int i = 0; i < SENSOR_COUNT; i++) 
+                {
+                    sensor_t *s = &net->sensors[i];
+                    //a
+                        if(s->pid == 0) {continue;} 
+                    
+                    //b 
+                        int status = 0;
+                        pid_t got;
+
+                        do {
+                            got = waitpid(s->pid, &status, WNOHANG);
+                        } while (got < 0 && errno == EINTR);
+                    
+                    //c 
+                        if (got <= 0) {continue;}
+
+                    //d 
+                        if(net->log != NULL)
+                    {
+
+                    if (WIFSIGNALED(status)) 
+                    {
+
+                     log_writef(net->log, LOG_ALERT,
+                     "sensor %s (pid %d) died on signal %d (%s)",sensor_name(s->id),(int)got,WTERMSIG(status), strsignal(WTERMSIG(status)));
+
+                    } else if (WEXITSTATUS(status) == 0) {
+
+                     log_writef(net->log, LOG_SYSTEM,"sensor %s (pid %d) finished with status 0",sensor_name(s->id),(int)got);
+
+                    } else {
+
+                     log_writef(net->log, LOG_ALERT, "sensor %s (pid %d) exited with code %d", sensor_name(s->id),(int)got, WEXITSTATUS(status));
+                    }
+                    }
+    //Step 3
+        s->pid = 0;
+        net->n_sensors--; 
+        collected++;
+                }
+        return collected;
+    /*(void)net;
     errno = ENOSYS;
-    return -1;
+    return -1;*/
 }

@@ -15,10 +15,10 @@ log_t *log_open(const char *path)
 {
     if(path == NULL) {errno = EINVAL; return NULL;}
 
-        int fd = open(path, O_RDWR | O_APPEND | O_CREAT, 0600);
+        int fd = open(path, O_RDWR| O_CLOEXEC | O_APPEND | O_CREAT, 0600);
 
         while (fd < 0 && errno == EINTR)
-        {fd = open(path, O_RDWR | O_APPEND | O_CREAT, 0600);}
+        {fd = open(path, O_RDWR| O_CLOEXEC | O_APPEND | O_CREAT, 0600);}
     
         if(fd < 0) {return NULL;}
 

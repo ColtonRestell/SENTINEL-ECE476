@@ -56,6 +56,7 @@
  */
 
 #include "sentinel/proc.h"
+#include "sentinel/syscall.h"
 
 #include <string.h>
 #include <errno.h>
@@ -108,11 +109,44 @@ static void open_failed(prio_channel_t *ch)
  */
 int prio_open(prio_channel_t *ch, const char *path)
 {
+    //Step 1 
+        if(ch== NULL || path== NULL ) {errno = EINVAL; return -1;}
+
+    //Step 2
+        memset(ch, 0, sizeof *ch);
+        ch->fd = -1;
+        ch->fd_hold = -1;
+    
+    //Step 3 
+        if(strlen(path) >= sizeof(ch->path)){errno = ENAMETOOLONG; return -1;}
+    
+    //Step 4
+        strcpy(ch->path, path); 
+
+    //Step 5
+        unlink(path);
+    
+    //Step 6
+        if(mkfifo(path, 0600) == -1) {ch->path[0] = '\0'; return -1;}
+    
+    //Step 7 
+        if(chmod(path, 0600) == -1) {open_failed(ch); return -1;}
+    
+    //Step 8
+        if((ch->fd = open(path, O_RDONLY | O_NONBLOCK | O_CLOEXEC)) == -1) {open_failed(ch); return -1;} 
+
+    //Step 9
+        if((ch->fd_hold = open(path, O_WRONLY | O_NONBLOCK | O_CLOEXEC)) == -1) {open_failed(ch); return -1;}
+
+    //Step 10 
+        return 0; 
+    /*
     (void)ch;
     (void)path;
-    (void)open_failed;      /* steps 7 to 9 call it */
-    errno = ENOSYS;
-    return -1;
+    (void)open_failed;      steps 7 to 9 call it 
+   // errno = ENOSYS;
+   // return -1; 
+   */
 }
 
 /* prio_close: close the FIFO and remove it from the file system.
@@ -126,7 +160,18 @@ int prio_open(prio_channel_t *ch, const char *path)
  */
 void prio_close(prio_channel_t *ch)
 {
-    (void)ch;
+    //Step 1
+        if(ch == NULL) {return;}
+    
+    //Step 2
+        if(ch->fd_hold >= 0) {sc_close(ch->fd_hold); ch->fd_hold = -1;}
+    
+    //Step 3
+        if(ch->fd >= 0){sc_close(ch->fd); ch->fd = -1;}
+    
+    //Step 4
+        if(ch->path[0] != '\0') {unlink(ch->path); ch->path[0] ='\0';}
+   // (void)ch;
 }
 
 /* prio_send: send one report into a FIFO that exists.
@@ -149,8 +194,38 @@ void prio_close(prio_channel_t *ch)
  */
 int prio_send(const char *path, const char *line)
 {
+    //Step 1
+        if(path == NULL|| line == NULL){errno = EINVAL; return -1;}
+    
+    //Step 2 
+        size_t len = strlen(line);
+        int add_nl = (len == 0 || line[len - 1] != '\n');
+
+    //Step 3 
+        if((len + add_nl) > CONTACT_LINE_MAX) {errno = EMSGSIZE; return -1;}
+
+    //Step 4
+        char buf[CONTACT_LINE_MAX + 1]; 
+        memcpy(buf, line, len);
+            if (add_nl) {buf[len++] = '\n';}
+    
+    //Step 5
+        int fd = open(path, O_WRONLY | O_CLOEXEC);
+            if(fd == -1) {return -1;}
+            
+    //Step 6
+        int rc = sc_write_all(fd, buf, len);
+    
+    //Step 7
+        int s_errno = errno; 
+            sc_close(fd);
+            errno = s_errno; 
+        
+        return rc; 
+    /*
     (void)path;
     (void)line;
     errno = ENOSYS;
     return -1;
+    */
 }
