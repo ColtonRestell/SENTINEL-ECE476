@@ -105,15 +105,40 @@ static pool_t *start_failed(pool_t *p, int i, int rc)
 pool_t *pool_create_deadline(int n_workers, queue_t *q, track_t *t,
                              int service_us, int late_ms, log_t *log)
 {
-    (void)n_workers;
-    (void)q;
-    (void)t;
-    (void)service_us;
-    (void)late_ms;
-    (void)log;
-    (void)start_failed;     /* step 6 calls it */
-    errno = ENOSYS;
-    return NULL;
+    if(n_workers <= 0 || q == NULL || t == NULL) {errno = EINVAL; return NULL;}
+    
+    pool_t *p = calloc(1, sizeof *p);
+
+    if(p == NULL) {return NULL;}
+
+    if((p->tids = calloc(n_workers, sizeof *p->tids)) == NULL || (p->workers = calloc(n_workers, sizeof *p->workers)) == NULL)
+        {
+            free_pool(p);
+            errno = ENOMEM;
+            return NULL; 
+        }
+
+    p->n_workers = n_workers;
+    p->queue = q;
+    p->track = t;
+    p->service_us = service_us;
+    p->late_ms = late_ms;
+    p->log = log;
+
+    if((pool_calibrate(p)) != 0) {free_pool(p); errno = EAGAIN; return NULL;}
+
+    for(int i = 0; i < n_workers; ++i)
+        {
+            p->workers[i].pool = p;
+            p->workers[i].index = i;
+            int rc = pthread_create(&p->tids[i], NULL, pool_worker_main,&p->workers[i]);
+            
+            if(rc != 0) {return start_failed(p, i, rc);}
+        }
+    
+    if(log != NULL) {log_writef(log, LOG_SYSTEM,"worker pool started: %d workers, %d us, deadline %d ms",n_workers, service_us, late_ms);}
+
+    return p;
 }
 
 /* pool_stop: tell each worker to stop, and wait for each one.
@@ -131,7 +156,14 @@ pool_t *pool_create_deadline(int n_workers, queue_t *q, track_t *t,
  */
 void pool_stop(pool_t *p)
 {
-    (void)p;
+    if(p == NULL) {return;}
+        p->stop = 1;
+    
+    for(int i = 0; i < p->n_workers; ++i)
+        {
+            pthread_join(p->tids[i], NULL);
+        }
+    if(p->log != NULL) {log_writef(p->log, LOG_SYSTEM, "worker pool stopped: %ld processed", pool_total_processed(p));}
 }
 
 /* pool_destroy: free the pool. Call it after pool_stop.
@@ -140,5 +172,5 @@ void pool_stop(pool_t *p)
  */
 void pool_destroy(pool_t *p)
 {
-    (void)p;
+    if(p != NULL) {free_pool(p);}
 }

@@ -70,6 +70,18 @@ static void test_order(void)
    1, and queue_count(&q) is still 2. */
 static void test_full(void)
 {
+   queue_t q;
+   assert(queue_init(&q, 2) == 0);
+   pending_t a = make("A");
+    pending_t b = make("B");
+    pending_t c = make("C");
+    assert(queue_push(&q, &a) == 0);
+    assert(queue_push(&q, &b) == 0);
+    assert(queue_push(&q, &c) == -1);
+    assert(errno == ENOSPC);
+    assert(q.rejected == 1);
+    assert(queue_count(&q) == 2);
+    queue_destroy(&q);
 }
 
 /* The ring wraps. Make a queue of 2 slots. Push A, push B, pop (it gives
@@ -77,12 +89,39 @@ static void test_full(void)
    slot 0 again. */
 static void test_wrap(void)
 {
+   queue_t q;
+   assert(queue_init(&q, 2) == 0);
+   pending_t a = make("A");
+   pending_t b = make("B");
+   pending_t c = make("C");
+   pending_t out;
+   assert(queue_push(&q, &a) == 0);
+   assert(queue_push(&q, &b) == 0);
+   assert(queue_pop(&q, &out) == 1);
+   assert(strcmp(out.c.id, "A") == 0);
+   assert(queue_push(&q, &c) == 0);
+   assert(queue_pop(&q, &out) == 1);
+   assert(strcmp(out.c.id, "B") == 0);
+   assert(queue_pop(&q, &out) == 1);
+   assert(strcmp(out.c.id, "C") == 0);
+
+   queue_destroy(&q);
+
 }
 
 /* NULL. queue_init(NULL, 4), queue_push(NULL, &p) and queue_pop(NULL, &out)
    each give -1 with errno EINVAL. queue_count(NULL) gives 0. */
 static void test_null(void)
 {
+   pending_t p = make("A");
+   pending_t out;
+   assert(queue_init(NULL, 4) == -1);
+   assert(errno == EINVAL);
+   assert(queue_push(NULL, &p) == -1);
+   assert(errno == EINVAL);
+   assert(queue_pop(NULL, &out) == -1);
+   assert(errno == EINVAL);
+   assert(queue_count(NULL) == 0);
 }
 
 int main(void)
