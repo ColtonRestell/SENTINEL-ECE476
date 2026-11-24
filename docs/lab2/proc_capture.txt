@@ -1,0 +1,22 @@
+    PID    PPID STAT COMMAND
+  17041   13493 R+   build/demo_lab2 --sched priority --ms 20000 --kill-sensor AUR --expected common/traffic.txt --log docs/lab2/missions.log
+  17042   17041 S+   /home/ubuntu/sentinel-template/build/contactfeed --sensor NWS --rate 20
+  17044   17041 S+   /home/ubuntu/sentinel-template/build/contactfeed --sensor AIS --rate 50
+  17045   17041 S+   /home/ubuntu/sentinel-template/build/contactfeed --sensor SAT --rate 2000
+  17046   17041 Z+   [demo_lab2] <defunct>
+
+total 0
+lrwx------ 1 ubuntu ubuntu 64 Nov 10 16:04 0 -> /dev/pts/0
+l-wx------ 1 ubuntu ubuntu 64 Nov 10 16:04 1 -> /home/ubuntu/sentinel-template/docs/lab2/demo_output.txt
+lrwx------ 1 ubuntu ubuntu 64 Nov 10 16:04 2 -> /dev/pts/0
+lrwx------ 1 ubuntu ubuntu 64 Nov 10 16:04 3 -> /home/ubuntu/sentinel-template/docs/lab2/missions.log
+lr-x------ 1 ubuntu ubuntu 64 Nov 10 16:04 4 -> /tmp/sentinel_priority.fifo
+l-wx------ 1 ubuntu ubuntu 64 Nov 10 16:04 5 -> /tmp/sentinel_priority.fifo
+lr-x------ 1 ubuntu ubuntu 64 Nov 10 16:04 6 -> pipe:[60247]
+lr-x------ 1 ubuntu ubuntu 64 Nov 10 16:04 8 -> pipe:[60249]
+lr-x------ 1 ubuntu ubuntu 64 Nov 10 16:04 9 -> pipe:[60250]
+
+total 0
+lrwx------ 1 ubuntu ubuntu 64 Nov 10 16:04 0 -> /dev/pts/0
+l-wx------ 1 ubuntu ubuntu 64 Nov 10 16:04 1 -> pipe:[60247]
+lrwx------ 1 ubuntu ubuntu 64 Nov 10 16:04 2 -> /dev/pts/0

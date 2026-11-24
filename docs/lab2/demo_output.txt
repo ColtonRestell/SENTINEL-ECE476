@@ -1,0 +1,7 @@
+SENTINEL Part 2 — operations centre
+  sensors started   4 of 4
+  policy            priority
+  work per report   500 us
+  priority channel  /tmp/sentinel_priority.fifo
+  mission log       docs/lab2/missions.log
+

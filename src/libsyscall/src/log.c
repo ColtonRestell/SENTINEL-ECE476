@@ -40,7 +40,7 @@ log_t *log_open(const char *path)
                     errno = errorlog; 
                     return NULL;
                 }
-        new_log -> fd = fd; // (*fd).fd = fd
+        new_log -> fd = fd; 
     return new_log; 
 }
 
@@ -48,12 +48,12 @@ int log_writef(log_t *lg, log_level_t level, const char *fmt, ...)
 {
     if(lg == NULL || fmt == NULL) {errno = EINVAL; return -1;}
 
-    char buf[512];
+    char buf[4096];
         va_list args;
         va_start(args, fmt);
             int result = vsnprintf(buf,sizeof(buf),fmt,args);
         va_end(args);
-                if(result == -1) {errno = EOVERFLOW; return -1;} //if vsnprintf fails
+                if(result == -1) {errno = EOVERFLOW; return -1;} 
         
     const char* tempchar = log_level_name(level); 
             if(tempchar == NULL) {errno = EINVAL; return -1;}
@@ -62,9 +62,9 @@ int log_writef(log_t *lg, log_level_t level, const char *fmt, ...)
             int temp = sc_stamp(buffer, sizeof(buffer));
                 if(temp == -1){return -1;}
         
-        char tempbuf[512 - temp - strlen(tempchar)];
+        char tempbuf[4096 - temp - strlen(tempchar)];
         int print = snprintf(tempbuf, sizeof(tempbuf), "%s %-8s %s\n", buffer, tempchar, buf);
-            if(print == -1) {errno = EOVERFLOW; return -1;} //if snprintf fails
+            if(print == -1) {errno = EOVERFLOW; return -1;} 
 
         for (int i = 0; buf[i] != '\0'; i++) 
         {

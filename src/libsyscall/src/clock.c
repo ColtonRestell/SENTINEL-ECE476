@@ -10,9 +10,9 @@
 
 int64_t sc_now_ns(void)
 {
-    struct timespec tp; //In time.h 
+    struct timespec tp; 
         clock_gettime(CLOCK_MONOTONIC, &tp);
-        return (int64_t)tp.tv_sec * 1000000000LL + tp.tv_nsec; //LL cast for safty     
+        return (int64_t)tp.tv_sec * 1000000000LL + tp.tv_nsec;     
 }
 
 void sc_now_wall(int64_t *sec, int32_t *usec)
