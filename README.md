@@ -45,6 +45,6 @@ When the course releases a later lab, its papers arrive in `docs/<lab>/`, with
 
 ## Credit
 
-The project brief and the scenario come from the ECE 476 Lab Documentation.
-Course: ECE 476 – Engineering System Software 
-Institution: University of Victoria
+The project brief and the scenario come from the ECE 476 Lab Documentation.<br>
+Course: ECE 476 – Engineering System Software.<br>
+Institution: University of Victoria.<br>
