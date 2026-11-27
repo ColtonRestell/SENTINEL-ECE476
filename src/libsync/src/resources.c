@@ -61,11 +61,15 @@
  */
 int resources_acquire_both(resources_t *r, resource_id_t a, resource_id_t b)
 {
-    (void)r;
-    (void)a;
-    (void)b;
-    errno = ENOSYS;
-    return -1;
+    if(r == NULL || a == b || a < 0 || b < 0 || a >= RESOURCE_COUNT || b >= RESOURCE_COUNT) {errno = EINVAL; return -1;}
+        resource_id_t first  = (a < b) ? a : b;
+        resource_id_t second = (a < b) ? b : a;
+        pthread_mutex_lock(&r->locks[first]);
+        pthread_mutex_lock(&r->locks[second]);
+        r->acquisitions[first]++;
+        r->acquisitions[second]++;
+
+    return 0;
 }
 
 /* resources_release_both: give both locks back.
@@ -77,7 +81,9 @@ int resources_acquire_both(resources_t *r, resource_id_t a, resource_id_t b)
  */
 void resources_release_both(resources_t *r, resource_id_t a, resource_id_t b)
 {
-    (void)r;
-    (void)a;
-    (void)b;
+    if(r == NULL || a == b) {return;}
+        resource_id_t first  = (a < b) ? a : b;
+        resource_id_t second = (a < b) ? b : a;
+        pthread_mutex_lock(&r->locks[second]);
+        pthread_mutex_lock(&r->locks[first]);
 }

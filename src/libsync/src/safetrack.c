@@ -59,9 +59,14 @@
  */
 int safe_track_init(safe_track_t *st)
 {
-    (void)st;
-    errno = ENOSYS;
-    return -1;
+    if(st == NULL) {errno = EINVAL; return -1;}
+        memset(st, 0, sizeof *st);
+
+    if(track_init(&st->track) != 0) {return -1;}
+    int rc = pthread_mutex_init(&st->lock, NULL);
+        if(rc != 0) {track_destroy(&st->track); errno = rc; return -1;}
+    
+    return 0;
 }
 
 /* safe_track_destroy: free the picture and the mutex.
@@ -73,7 +78,9 @@ int safe_track_init(safe_track_t *st)
  */
 void safe_track_destroy(safe_track_t *st)
 {
-    (void)st;
+    if(st == NULL) {return;}
+        track_destroy(&st->track);
+        pthread_mutex_destroy(&st->lock);
 }
 
 /* safe_track_update: put one report into the picture, under the lock.
@@ -89,8 +96,10 @@ void safe_track_destroy(safe_track_t *st)
  */
 int safe_track_update(safe_track_t *st, const contact_t *c)
 {
-    (void)st;
-    (void)c;
-    errno = ENOSYS;
-    return -1;
+    if(st == NULL || c == NULL) {errno = EINVAL; return -1;}
+        pthread_mutex_lock(&st->lock);
+        int rc = track_update(&st->track, c);
+        pthread_mutex_unlock(&st->lock);
+
+    return rc;
 }

@@ -5,6 +5,7 @@
 #include "sentinel/syscall.h"
 #include <errno.h>
 #include <stdio.h>
+#include <string.h>
 
 #define SC_STAMP_MAX 32
 
@@ -27,13 +28,27 @@ void sc_now_wall(int64_t *sec, int32_t *usec)
 
 int sc_stamp(char *buf, size_t buflen)
 {
-    if(buflen < SC_STAMP_MAX)
-        {errno = ERANGE; return -1;}
     if(buf == NULL)
         {errno = EINVAL; return -1;}
 
-     struct timespec tp; 
-        clock_gettime(CLOCK_REALTIME, &tp);
-            int len = snprintf(buf, buflen, "%lld.%06ld", (long long)tp.tv_sec, tp.tv_nsec / 1000);
-        return len;
+    if(buflen == 0)
+        {errno = ERANGE; return -1;}
+
+    struct timespec tp;
+    clock_gettime(CLOCK_REALTIME, &tp);
+
+    int len = snprintf(buf, buflen, "%lld.%06ld",
+                       (long long)tp.tv_sec, tp.tv_nsec / 1000);
+
+    if(len < 0)
+        {return -1;}
+
+    if((size_t)len >= buflen)
+    {
+        memset(buf, '#', buflen);
+        errno = ERANGE;
+        return -1;
+    }
+
+    return len;
 }

@@ -15,10 +15,10 @@ log_t *log_open(const char *path)
 {
     if(path == NULL) {errno = EINVAL; return NULL;}
 
-        int fd = open(path, O_RDWR| O_CLOEXEC | O_APPEND | O_CREAT, 0600);
+       int fd = open(path, O_WRONLY | O_CLOEXEC | O_APPEND | O_CREAT, 0600);
 
         while (fd < 0 && errno == EINTR)
-        {fd = open(path, O_RDWR| O_CLOEXEC | O_APPEND | O_CREAT, 0600);}
+        {fd = open(path, O_WRONLY | O_CLOEXEC | O_APPEND | O_CREAT, 0600);}
     
         if(fd < 0) {return NULL;}
 
@@ -44,35 +44,69 @@ log_t *log_open(const char *path)
     return new_log; 
 }
 
-int log_writef(log_t *lg, log_level_t level, const char *fmt, ...)
-{
-    if(lg == NULL || fmt == NULL) {errno = EINVAL; return -1;}
+int log_writef(log_t *lg, log_level_t level, const char *fmt, ...){
+   
+   if(lg == NULL || fmt == NULL){
+    errno = EINVAL;
+    return -1;
+   }
 
-    char buf[4096];
-        va_list args;
-        va_start(args, fmt);
-            int result = vsnprintf(buf,sizeof(buf),fmt,args);
-        va_end(args);
-                if(result == -1) {errno = EOVERFLOW; return -1;} 
-        
-    const char* tempchar = log_level_name(level); 
-            if(tempchar == NULL) {errno = EINVAL; return -1;}
+    char ts[SC_STAMP_MAX]; 
+    int tslen = sc_stamp(ts, sizeof(ts));
+    if(tslen == -1){
+        return -1;
+    }
+    const char *lvl = log_level_name(level); 
+    if(lvl == NULL){
+        errno = EINVAL;
+        return -1;
+    }
+    char buf[513]; 
+    int bytes = snprintf(buf, sizeof(buf), "%s %-8s ", ts, lvl);
 
-        char buffer[SC_STAMP_MAX];
-            int temp = sc_stamp(buffer, sizeof(buffer));
-                if(temp == -1){return -1;}
-        
-        char tempbuf[4096 - temp - strlen(tempchar)];
-        int print = snprintf(tempbuf, sizeof(tempbuf), "%s %-8s %s\n", buffer, tempchar, buf);
-            if(print == -1) {errno = EOVERFLOW; return -1;} 
+    if (bytes < 0){
+        errno = EOVERFLOW; 
+        return -1;
+    }
+    
+    size_t max_size = 512 - bytes -1;//remaining size for message, room for newline at the end
 
-        for (int i = 0; buf[i] != '\0'; i++) 
-        {
-             if (buf[i] == '\n') {buf[i] = ' ';}
+    char message[512]; 
+    va_list args; 
+    va_start(args, fmt);
+    int msgbytes = vsnprintf(message, max_size + 1, fmt, args); //max size + 1 because we need room for the null terminator
+    va_end(args);
+
+
+    if(msgbytes < 0){
+        errno = EOVERFLOW;
+        return -1;
+    }
+
+    size_t max = (size_t)msgbytes;
+
+    if(max > max_size){ //if the number of bytes written exceeds the size of the message, update max to max_size
+        max = max_size;
+    }
+
+    for(size_t i = 0; i < max; i++){
+        if(message[i] == '\n'){
+            message[i] = ' '; 
         }
-        int write = sc_write_all(lg -> fd, tempbuf, (size_t)print); 
-            if(write == -1){return -1;}
-    return 0; 
+    }
+
+    strcat(buf, message);
+    strcat(buf, "\n");
+    size_t write_amount = strlen(buf);
+
+    int result = sc_write_all(lg->fd, buf, write_amount);
+
+    if(result == -1){
+        return -1;
+    }
+
+    return 0;
+       
 }
 
 int log_close(log_t *lg)
